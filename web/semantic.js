@@ -1,3 +1,4 @@
+import { pt } from './i18n.js';
 // V2 rendering uses the existing cards/tabs and never inserts remote HTML.
 export function renderSemantic(panel, selected, dna, { el, card }) {
   const grid = el('div', undefined, 'grid');
@@ -64,6 +65,17 @@ export function renderSemantic(panel, selected, dna, { el, card }) {
     }
     findings(dna.typography.personality);
   } else if (selected === 'Spacing') {
+    if (dna.spacing.observed)
+      grid.append(
+        card('Espaçamentos observados', dna.spacing.observed.map((v) => `${v}px`).join(' · ')),
+      );
+    panel.append(
+      el(
+        'p',
+        'Os tokens abaixo exigem uma escala recorrente. Valores observados e espaçamentos de seção são apresentados separadamente.',
+        'notice',
+      ),
+    );
     findings({ baseUnit: dna.spacing.baseUnit, ...dna.tokens.spacing });
     for (const [kind, values] of Object.entries(dna.spacing.contexts))
       grid.append(card(kind, values.map((v) => `${v.value}px (${v.count}×)`).join(' · ')));
@@ -78,11 +90,11 @@ export function renderSemantic(panel, selected, dna, { el, card }) {
       c.append(
         el(
           'p',
-          `Title: ${family.structure.hasTitle} · Description: ${family.structure.hasDescription} · Action: ${family.structure.hasAction} · Media: ${family.structure.media || 'none'} · ${family.group.layout}`,
+          `Title: ${family.structure.hasTitle} · Description: ${family.structure.hasDescription} · Action: ${family.structure.hasAction} · Media: ${pt(family.structure.media || 'none')} · ${family.group.layout}`,
         ),
       );
       for (const [name, ref] of Object.entries(family.visualStyle))
-        c.append(el('code', `${name}: ${ref.token || 'local value'} = ${ref.resolved}`));
+        c.append(el('code', `${pt(name)}: ${ref.token || 'valor local'} = ${pt(ref.resolved)}`));
       evidence(c, family);
       grid.append(c);
     }

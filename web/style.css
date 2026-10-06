@@ -384,6 +384,28 @@ pre {
   margin-bottom: 20px;
   font-size: 12px;
 }
+.coverage {
+  margin-top: 28px;
+}
+.segments {
+  max-height: 720px;
+  overflow-y: auto;
+}
+.segments figure {
+  margin: 18px 0;
+}
+.segments figcaption {
+  margin-bottom: 8px;
+  color: #56734d;
+}
+.warnings {
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+}
+.warnings summary {
+  cursor: pointer;
+  color: #56734d;
+}
 #progress {
   background: #eaf0e4;
   border: 1px solid #d6e2cc;

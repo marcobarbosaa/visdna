@@ -2,7 +2,7 @@ import type { Capture } from '../../types.js';
 import type { VisualDNAV2 } from './types.js';
 import { context, heading, median, px } from './context.js';
 import { columns, container } from './layout.js';
-import { finding, signal } from './confidence.js';
+import { finding, signal, unknown } from './confidence.js';
 export function analyzeResponsive(capture: Capture): VisualDNAV2['responsive'] {
   const desktop = context(capture.desktop.elements),
     mobile = context(capture.mobile.elements);
@@ -42,15 +42,27 @@ export function analyzeResponsive(capture: Capture): VisualDNAV2['responsive'] {
     ['headingReduction', headingRatios],
     ['bodyReduction', bodyRatios],
   ] as const)
-    if (pairs.length)
-      typography[key] = finding(
-        `${median(pairs.map((p) => p[0]!))}px → ${median(pairs.map((p) => p[1]!))}px`,
-        [
-          signal(1, `${pairs.length} matched text elements shrink`),
-          signal(1, 'Median sizes across the two observed states'),
-        ],
-        pairs.length,
+    if (pairs.length) {
+      const plausible = pairs.filter(
+        ([d, m]) => m! >= 8 && d! >= 8 && m! / d! >= (key === 'bodyReduction' ? 0.55 : 0.3),
       );
+      typography[key] =
+        plausible.length < pairs.length * 0.75
+          ? {
+              ...unknown<string>(),
+              evidence: [
+                'Suspected responsive mismatch: implausible size or reduction; result withheld',
+              ],
+            }
+          : finding(
+              `${median(pairs.map((p) => p[0]!))}px → ${median(pairs.map((p) => p[1]!))}px`,
+              [
+                signal(1, `${pairs.length} matched text elements shrink`),
+                signal(1, 'Median sizes across the two observed states'),
+              ],
+              pairs.length,
+            );
+    }
   return {
     observedViewports: [capture.desktop.width, capture.mobile.width],
     desktopContainer: container(capture.desktop, desktop),

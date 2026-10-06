@@ -9,7 +9,12 @@ try {
   const result = await capture(url, dir, stage);
   const { dna, raw } = buildAnalysis(result, url, stage);
   await saveRawAnalysis(dir, raw);
-  process.send?.({ stage: 'complete', dna });
+  process.send?.({
+    stage: 'complete',
+    dna,
+    artifacts: { ...result.screenshots, raw: true },
+    captureCoverage: result.captureCoverage,
+  });
 } catch (error) {
   process.send?.({
     stage: 'error',

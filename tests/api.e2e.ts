@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { get } from 'node:http';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -69,6 +69,35 @@ test(
       };
       await store.save({ ...record, id, dna });
       await saveRawAnalysis(store.dir(id), raw);
+      await writeFile(join(store.dir(id), 'segment-001.jpg'), Buffer.from('fixture'));
+      await store.save({
+        ...record,
+        id,
+        dna,
+        artifacts: {
+          desktop: true,
+          mobile: true,
+          fullPage: true,
+          raw: true,
+          segments: [{ index: 1, file: 'segment-001.jpg', startY: 900, endY: 1800, width: 1440 }],
+        },
+      });
+      const actual = await (await fetch(`${base}/api/analyses/${id}`)).json();
+      assert.equal(actual.artifacts.desktop, false);
+      assert.equal(actual.artifacts.fullPage, false);
+      assert.equal(actual.artifacts.raw, true);
+      assert.equal(actual.artifacts.segments.length, 1);
+      assert.equal((await fetch(`${base}/api/analyses/${id}/images/segment-001.jpg`)).status, 200);
+      assert.equal((await fetch(`${base}/api/analyses/${id}/images/segment-020.jpg`)).status, 404);
+      await rm(join(store.dir(id), 'segment-001.jpg'));
+      assert.equal(
+        (await (await fetch(`${base}/api/analyses/${id}`)).json()).artifacts.segments.length,
+        0,
+      );
+      assert.equal(
+        (await (await fetch(`${base}/api/analyses`)).json())[0].artifacts.segments.length,
+        0,
+      );
       await store.save({ ...record, id: oldId, dna: raw.normalized });
       const download = await fetch(`${base}/api/analyses/${id}/dna`);
       assert(download.headers.get('content-disposition')?.includes('attachment'));

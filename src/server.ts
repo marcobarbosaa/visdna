@@ -51,7 +51,15 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '4kb' }));
 app.get('/api/health', (_req, res) => res.json({ ok: true, busy }));
 app.get('/api/analyses', async (_req, res) =>
-  res.json((await store.list()).map(({ dna, ...r }) => ({ ...r, hasDNA: !!dna }))),
+  res.json(
+    await Promise.all(
+      (await store.list()).map(async ({ dna, ...r }) => ({
+        ...r,
+        artifacts: await store.artifacts(r),
+        hasDNA: !!dna,
+      })),
+    ),
+  ),
 );
 app.get('/api/analyses/:id', async (req, res) => {
   const record = await store.get(req.params.id);
@@ -59,7 +67,7 @@ app.get('/api/analyses/:id', async (req, res) => {
     res.status(404).json({ error: 'Análise não encontrada.' });
     return;
   }
-  res.json(record);
+  res.json({ ...record, artifacts: await store.artifacts(record) });
 });
 app.get('/api/analyses/:id/dna', async (req, res) => {
   const record = await store.get(req.params.id);
@@ -132,13 +140,24 @@ app.post('/api/analyses', async (req, res) => {
       persist();
       terminateTree(child);
     }, 75000);
-    child.on('message', (message: { stage: Stage; dna?: VisualDNA; error?: string }) => {
-      if (finished || !stages.has(message.stage)) return;
-      record.stage = message.stage;
-      if (message.dna) record.dna = message.dna;
-      if (message.error) record.error = message.error;
-      persist();
-    });
+    child.on(
+      'message',
+      (message: {
+        stage: Stage;
+        dna?: VisualDNA;
+        error?: string;
+        artifacts?: AnalysisRecord['artifacts'];
+        captureCoverage?: AnalysisRecord['captureCoverage'];
+      }) => {
+        if (finished || !stages.has(message.stage)) return;
+        record.stage = message.stage;
+        if (message.dna) record.dna = message.dna;
+        if (message.artifacts) record.artifacts = message.artifacts;
+        if (message.captureCoverage) record.captureCoverage = message.captureCoverage;
+        if (message.error) record.error = message.error;
+        persist();
+      },
+    );
     const finish = () => {
       if (closed) return;
       closed = true;

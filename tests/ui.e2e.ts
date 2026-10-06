@@ -21,6 +21,16 @@ test(
         url: 'https://fixture.example/',
         createdAt: '2026-10-06T12:00:00Z',
         stage: 'complete',
+        artifacts: {
+          desktop: true,
+          mobile: false,
+          fullPage: false,
+          raw: r.id === 'v2',
+          segments:
+            r.id === 'v2'
+              ? [{ index: 0, file: 'main.png', startY: 0, endY: 900, width: 1440 }]
+              : [],
+        },
       }));
       const page = await browser.newPage();
       const errors: string[] = [];
@@ -41,6 +51,7 @@ test(
           '/': ['index.html', 'text/html'],
           '/app.js': ['app.js', 'text/javascript'],
           '/semantic.js': ['semantic.js', 'text/javascript'],
+          '/i18n.js': ['i18n.js', 'text/javascript'],
           '/style.css': ['style.css', 'text/css'],
         };
         const file = files[path];
@@ -59,7 +70,7 @@ test(
         await page.locator('#result').waitFor({ state: 'visible' });
         assert(
           (await page.locator('#meta').textContent())?.includes(
-            version === 'v2' ? 'schema 2.0' : 'schema 1.0',
+            version === 'v2' ? 'versão 2.0' : 'versão 1.0',
           ),
         );
         assert.equal(
@@ -68,20 +79,20 @@ test(
         );
         if (version === 'v2')
           assert.equal(
-            await page.getByText('Download RAW analysis').getAttribute('href'),
+            await page.getByText('Baixar análise bruta').getAttribute('href'),
             '/api/analyses/v2/raw',
           );
         for (const tab of [
-          'Colors',
-          'Typography',
-          'Spacing',
-          'Radius',
-          'Shadows',
-          'Components',
+          'Cores',
+          'Tipografia',
+          'Espaçamento',
+          'Bordas',
+          'Sombras',
+          'Componentes',
           'Layout',
-          'Motion',
-          'Raw Visual DNA',
-          'Overview',
+          'Movimento',
+          'DNA Visual bruto',
+          'Visão geral',
         ]) {
           await page
             .locator('#tabs button')
@@ -93,6 +104,15 @@ test(
           );
         }
         assert.equal(await page.locator('#error').isVisible(), false);
+        assert.equal(await page.locator('a[href$="full.png"], a[href$="mobile.png"]').count(), 0);
+        if (version === 'v2') {
+          await page.getByRole('button', { name: 'Página inteira', exact: true }).click();
+          assert.equal(await page.locator('.segments img').count(), 1);
+        } else
+          assert.equal(
+            await page.getByRole('button', { name: 'Página inteira', exact: true }).count(),
+            0,
+          );
       }
       assert.deepEqual(errors, []);
       assert.equal(await page.locator('[onerror]').count(), 0);

@@ -20,7 +20,7 @@ export function container(snapshot: Snapshot, ctx: SemanticContext): Finding<num
     (e) =>
       e.children >= 1 &&
       e.rect.width >= snapshot.width * 0.5 &&
-      e.rect.width <= snapshot.width &&
+      e.rect.width < snapshot.width - Math.max(16, snapshot.width * 0.02) &&
       e.rect.height >= 80 &&
       e.tag !== 'body' &&
       Math.abs(e.rect.x - (snapshot.width - e.rect.width) / 2) < 24,
@@ -47,7 +47,13 @@ export function container(snapshot: Snapshot, ctx: SemanticContext): Finding<num
 export function analyzeLayout(
   snapshot: Snapshot,
   ctx: SemanticContext,
-): { regions: LayoutRegion[]; desktopContainer: Finding<number> } {
+): {
+  regions: LayoutRegion[];
+  desktopContainer: Finding<number>;
+  viewportWidth: number;
+  pageShellWidth: number;
+  contentContainerWidth: Finding<number>;
+} {
   const candidates: { e: ElementSample; result: LayoutRegion }[] = [];
   let heroFound = false;
   for (const e of ctx.elements) {
@@ -69,7 +75,8 @@ export function analyzeLayout(
     if (e.tag === 'body') type = 'page shell';
     else if (e.tag === 'nav' || e.role === 'navigation') type = 'navbar';
     else if (e.tag === 'footer' || e.role === 'contentinfo') type = 'footer';
-    else if (e.tag === 'main' || e.role === 'main') type = 'content container';
+    else if (e.tag === 'main' || e.role === 'main')
+      type = e.rect.width >= snapshot.width - 16 ? 'page shell' : 'content container';
     else {
       const nearTop = e.rect.y >= 0 && e.rect.y < snapshot.height * 0.65;
       const prominent = titles.some(
@@ -170,5 +177,12 @@ export function analyzeLayout(
       continue;
     regions.push(result);
   }
-  return { regions, desktopContainer: container(snapshot, ctx) };
+  const contentContainerWidth = container(snapshot, ctx);
+  return {
+    regions,
+    desktopContainer: contentContainerWidth,
+    contentContainerWidth,
+    viewportWidth: snapshot.width,
+    pageShellWidth: snapshot.pageWidth || snapshot.width,
+  };
 }

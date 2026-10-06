@@ -1,12 +1,76 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { capture } from '../src/browser/engine.js';
 import { buildRawDNA as buildDNA } from '../src/analysis/raw.js';
 import { buildAnalysis } from '../src/analysis/dna.js';
 import { safeFetch } from '../src/security/fetch.js';
+import { intervalCoverage } from '../src/browser/traversal.js';
+
+test(
+  'long landing: segments, full traversal, lazy identity, mobile and canvas evidence',
+  { timeout: 70000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'visdna-long-'));
+    try {
+      const html = await readFile(new URL('./long-fixture.html', import.meta.url));
+      const result = await capture(
+        'https://fixture.example/',
+        dir,
+        () => {},
+        async () => ({ status: 200, headers: { 'content-type': 'text/html' }, body: html }),
+      );
+      const c = result.captureCoverage!;
+      assert(c.pageHeight > 15000);
+      assert.equal(c.scroll.reachedBottom, true);
+      assert.equal(c.scroll.coverage, 1);
+      assert.equal(c.scroll.observedTo, c.pageHeight);
+      assert(c.scroll.checkpoints.length > 10 && c.scroll.checkpoints.length <= 20);
+      assert.equal(result.screenshots?.fullPage, false);
+      await assert.rejects(stat(join(dir, 'full.png')));
+      const segments = result.screenshots!.segments;
+      assert(segments.length > 10);
+      assert.equal(
+        intervalCoverage(
+          segments.map((s) => [s.startY, s.endY]),
+          c.pageHeight,
+        ),
+        1,
+      );
+      for (const s of segments) assert((await readFile(join(dir, s.file))).length > 100);
+      assert(c.dom.addedElements > 0);
+      assert(result.desktop.elements.some((e) => e.role === 'note'));
+      assert(result.desktop.elements.some((e) => e.tag === 'footer' && e.rect.y > 12000));
+      assert.equal(result.desktop.elements.filter((e) => e.tag === 'footer').length, 1);
+      assert.equal(
+        result.desktop.elements.find((e) => e.tag === 'footer')?.id,
+        result.mobile.elements.find((e) => e.tag === 'footer')?.id,
+      );
+      assert.equal(
+        new Set(result.desktop.elements.map((e) => e.id)).size,
+        result.desktop.elements.length,
+      );
+      assert(result.mobile.elements.some((e) => e.role === 'status'));
+      assert(c.mobile.reachedBottom);
+      assert.equal(c.motion.canvasRegions, 3);
+      assert.equal(result.canvasRegions?.filter((c) => c.visualStateObserved).length, 3);
+      const dna = buildAnalysis(result, result.finalUrl).dna;
+      assert.equal(
+        dna.motion.patterns.find((p) => p.type === 'canvas-visual-change')?.instances,
+        2,
+      );
+      assert.equal(
+        dna.motion.patterns.find((p) => p.type === 'scroll-reactive-region')?.instances,
+        1,
+      );
+      assert(dna.motion.patterns.some((p) => p.type === 'persistent-scroll-visual'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
 test(
   'sandboxed Chromium: fixture, computed styles, scroll, mobile and screenshots',
   { timeout: 70000 },

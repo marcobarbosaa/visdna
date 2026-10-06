@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+  <meta charset="utf-8" /><title>Fixture longa</title>
+  <style>
+    body {
+      margin: 0;
+      font: 16px Arial;
+      background: white;
+    }
+    section {
+      height: 1500px;
+    }
+    canvas {
+      position: fixed;
+      top: 20px;
+      width: 80px;
+      height: 80px;
+      z-index: 10;
+    }
+    #dynamic {
+      left: 10px;
+    }
+    #static {
+      left: 110px;
+    }
+    #timed {
+      left: 210px;
+    }
+  </style>
+  <body>
+    <canvas id="dynamic" width="80" height="80"></canvas
+    ><canvas id="static" width="80" height="80"></canvas
+    ><canvas id="timed" width="80" height="80"></canvas>
+    <main></main>
+    <footer style="height: 300px">Fim</footer>
+    <script>
+      const main = document.querySelector('main');
+      for (let i = 0; i < 10; i++) {
+        const s = document.createElement('section');
+        s.innerHTML = '<h2>Seção ' + i + '</h2><p>Conteúdo de teste</p>';
+        main.append(s);
+      }
+      function paint(id, color) {
+        const ctx = document.getElementById(id).getContext('2d');
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 80, 80);
+      }
+      paint('static', '#123456');
+      function update() {
+        paint('dynamic', 'hsl(' + Math.floor(scrollY / 900) * 43 + ' 100% 50%)');
+        if (scrollY > 1500 && !document.querySelector('[data-lazy]')) {
+          const p = document.createElement('p');
+          p.dataset.lazy = 'yes';
+          p.setAttribute('role', 'note');
+          p.textContent = 'Inserido durante rolagem';
+          main.prepend(p);
+        }
+        if (innerWidth < 600 && scrollY > 4000 && !document.querySelector('[data-mobile]')) {
+          const p = document.createElement('p');
+          p.dataset.mobile = 'yes';
+          p.setAttribute('role', 'status');
+          p.textContent = 'Conteúdo mobile tardio';
+          main.append(p);
+        }
+      }
+      addEventListener('scroll', update);
+      update();
+      function tick(t) {
+        paint('timed', 'hsl(' + ((t / 3) % 360) + ' 100% 50%)');
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>

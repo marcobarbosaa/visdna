@@ -10,6 +10,8 @@ export interface ElementSample {
   styles: CSS;
 }
 export interface Snapshot {
+  pageWidth?: number;
+  inspectedNodes?: number;
   width: number;
   height: number;
   pageHeight: number;
@@ -17,6 +19,8 @@ export interface Snapshot {
   truncated: boolean;
 }
 export interface MotionFrame {
+  scrollY?: number;
+  sectionIds?: string[];
   progress: number;
   elements: {
     id: string;
@@ -28,6 +32,14 @@ export interface MotionFrame {
   }[];
 }
 export interface Capture {
+  screenshots?: ScreenshotManifest;
+  captureCoverage?: CaptureCoverage;
+  visualStates?: VisualState[];
+  canvasRegions?: Omit<
+    VisualState,
+    'checkpoint' | 'scrollY' | 'phase' | 'signature' | 'sectionIds'
+  >[];
+  mobileFrames?: MotionFrame[];
   desktop: Snapshot;
   mobile: Snapshot;
   frames: MotionFrame[];
@@ -120,6 +132,8 @@ export type Stage =
   | 'complete'
   | 'error';
 export interface AnalysisRecord {
+  artifacts?: ScreenshotManifest & { raw: boolean };
+  captureCoverage?: CaptureCoverage;
   id: string;
   url: string;
   domain: string;
@@ -130,3 +144,47 @@ export interface AnalysisRecord {
 }
 
 export type VisualDNA = VisualDNAV1 | import('./analysis/semantic/types.js').VisualDNAV2;
+
+export interface ScreenshotManifest {
+  desktop: boolean;
+  mobile: boolean;
+  fullPage: boolean;
+  segments: { index: number; file: string; startY: number; endY: number; width: number }[];
+}
+export interface TraversalCoverage {
+  observedFrom: number;
+  observedTo: number;
+  coverage: number;
+  reachedBottom: boolean;
+  checkpoints: number[];
+  stopReason: 'bottom' | 'checkpoints' | 'deadline';
+}
+export interface CaptureCoverage {
+  pageHeight: number;
+  pageWidth: number;
+  dom: {
+    sampledElements: number;
+    initialElements: number;
+    addedElements: number;
+    truncated: boolean;
+  };
+  scroll: TraversalCoverage;
+  mobile: TraversalCoverage & { pageHeight: number; sampledElements: number; truncated: boolean };
+  screenshots: { coverage: number; horizontalCoverage: number };
+  motion: { checkpoints: number; canvasRegions: number; visualSamples: number; limited: boolean };
+}
+export interface VisualState {
+  id: string;
+  type: 'canvas';
+  checkpoint: number;
+  scrollY: number;
+  phase: 'arrival' | 'settled';
+  rect: ElementSample['rect'];
+  position: string;
+  zIndex: string;
+  opacity: string;
+  transform: string;
+  visualStateObserved: boolean;
+  signature: number[] | null;
+  sectionIds: string[];
+}

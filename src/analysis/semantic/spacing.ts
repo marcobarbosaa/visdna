@@ -70,7 +70,9 @@ export function analyzeSpacing(ctx: SemanticContext): SpacingSystem {
       : unknown<number>();
   const tokens: SpacingSystem['tokens'] = {};
   // Numeric names avoid pretending that a five-level named scale exists.
-  for (const [n, count] of recurring.slice(0, 24))
+  for (const [n, count] of recurring
+    .filter(([n]) => baseUnit.value !== null && n % baseUnit.value === 0 && n <= 96)
+    .slice(0, 24))
     tokens[`space${n}`] = finding(
       n,
       [
@@ -83,6 +85,8 @@ export function analyzeSpacing(ctx: SemanticContext): SpacingSystem {
       count,
     );
   return {
+    observed: [...all.keys()].sort((a, b) => a - b),
+    sectionSpacing: (contexts.section || []).map((v) => v.value).filter((v) => v > 96),
     baseUnit,
     dominant: [...all]
       .sort((a, b) => b[1] - a[1])

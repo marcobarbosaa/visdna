@@ -22,6 +22,8 @@ export interface TypeStyle {
   tracking: string;
 }
 export interface SpacingSystem {
+  observed?: number[];
+  sectionSpacing?: number[];
   baseUnit: Finding<number>;
   dominant: number[];
   tokens: Record<string, Finding<number>>;
@@ -88,7 +90,13 @@ export interface VisualDNAV2 {
     shadows: Record<string, Finding<string>>;
     motion: Record<string, Finding<string>>;
   };
-  layout: { regions: LayoutRegion[]; desktopContainer: Finding<number> };
+  layout: {
+    regions: LayoutRegion[];
+    desktopContainer: Finding<number>;
+    viewportWidth?: number;
+    pageShellWidth?: number;
+    contentContainerWidth?: Finding<number>;
+  };
   componentFamilies: ComponentFamily[];
   responsive: {
     observedViewports: number[];
@@ -120,7 +128,13 @@ export interface RawAnalysis {
 /** Optional future enrichment contract. No implementation, network call or automatic merge. */
 export interface VisionAnalyzer {
   analyze(input: {
-    screenshots: { desktop: string; mobile: string };
+    screenshots: {
+      desktop: string;
+      mobile: string;
+      segments?: { file: string; startY: number; endY: number }[];
+    };
+    visualStates?: Capture['visualStates'];
+    captureCoverage?: Capture['captureCoverage'];
     raw: RawAnalysis;
     deterministic: VisualDNAV2;
   }): Promise<{ interpretations: Finding<string>[]; provenance: string }>;

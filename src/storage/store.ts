@@ -3,8 +3,12 @@ import { resolve, join } from 'node:path';
 import type { AnalysisRecord } from '../types.js';
 import type { RawAnalysis } from '../analysis/semantic/types.js';
 export async function saveRawAnalysis(dir: string, raw: RawAnalysis) {
-  await writeFile(join(dir, 'analysis.raw.tmp'), JSON.stringify(raw), { mode: 0o600 });
-  await rename(join(dir, 'analysis.raw.tmp'), join(dir, 'analysis.raw.json'));
+  try {
+    await writeFile(join(dir, 'analysis.raw.tmp'), JSON.stringify(raw), { mode: 0o600 });
+    await rename(join(dir, 'analysis.raw.tmp'), join(dir, 'analysis.raw.json'));
+  } finally {
+    await rm(join(dir, 'analysis.raw.tmp'), { force: true });
+  }
 }
 export class Store {
   readonly root: string;
@@ -18,6 +22,8 @@ export class Store {
   async init() {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     for (const r of await this.list()) {
+      for (const name of ['record.tmp', 'analysis.raw.tmp'])
+        await rm(join(this.dir(r.id), name), { force: true });
       if (!['complete', 'error'].includes(r.stage))
         await this.save({
           ...r,
@@ -30,8 +36,12 @@ export class Store {
   async save(record: AnalysisRecord) {
     const dir = this.dir(record.id);
     await mkdir(dir, { recursive: true, mode: 0o700 });
-    await writeFile(join(dir, 'record.tmp'), JSON.stringify(record), { mode: 0o600 });
-    await rename(join(dir, 'record.tmp'), join(dir, 'record.json'));
+    try {
+      await writeFile(join(dir, 'record.tmp'), JSON.stringify(record), { mode: 0o600 });
+      await rename(join(dir, 'record.tmp'), join(dir, 'record.json'));
+    } finally {
+      await rm(join(dir, 'record.tmp'), { force: true });
+    }
   }
   async get(id: string): Promise<AnalysisRecord | null> {
     try {
@@ -68,10 +78,34 @@ export class Store {
         await rm(this.dir(r.id), { recursive: true, force: true });
   }
   async image(id: string, name: string) {
-    if (!['main.png', 'full.png', 'mobile.png'].includes(name)) return null;
+    if (
+      !['main.png', 'full.png', 'mobile.png'].includes(name) &&
+      !/^segment-0[01][0-9]\.jpg$/.test(name)
+    )
+      return null;
     const path = join(this.dir(id), name);
     return await stat(path)
-      .then(() => path)
+      .then((s) => (s.isFile() && s.size > 0 ? path : null))
       .catch(() => null);
+  }
+  async artifacts(record: AnalysisRecord): Promise<NonNullable<AnalysisRecord['artifacts']>> {
+    const [desktop, mobile, fullPage, raw] = await Promise.all([
+      this.image(record.id, 'main.png'),
+      this.image(record.id, 'mobile.png'),
+      this.image(record.id, 'full.png'),
+      stat(join(this.dir(record.id), 'analysis.raw.json'))
+        .then((s) => s.isFile() && s.size > 0)
+        .catch(() => false),
+    ]);
+    const segments = [];
+    for (const segment of (record.artifacts?.segments || []).slice(0, 20))
+      if (await this.image(record.id, segment.file)) segments.push(segment);
+    return {
+      desktop: !!desktop,
+      mobile: !!mobile,
+      fullPage: !!fullPage,
+      raw: record.stage === 'complete' && raw,
+      segments,
+    };
   }
 }

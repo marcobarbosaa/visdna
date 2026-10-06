@@ -1,12 +1,12 @@
 # VisDNA
 
-**Observe. Understand. Create something new.**
+**Observe. Entenda. Crie algo novo.**
 
 Aplicação local que interpreta a linguagem visual de uma página pública a partir de seu DOM renderizado e de **computed styles**. O resultado é um Visual DNA JSON versionado, independente do framework de origem. Não recupera o código-fonte de React, não copia stylesheets inteiras e não gera clones.
 
 ## Status desta entrega
 
-Semantic Analyzer V2 implementado incrementalmente sobre o coletor existente. Novas análises geram Visual DNA 2.0 com identidade, tokens, famílias de componentes, layouts semânticos, responsive/motion agrupados e resumo determinístico. O diagnóstico completo fica separado em `analysis.raw.json`; registros V1 continuam legíveis. Lint, tipagem, testes, build, API e E2E com Chromium sandbox foram executados, incluindo validação pública adicional com MetaTFT. Consulte `docs/VERIFICATION.md`. Não trate esta entrega como certificada para produção.
+Captura progressiva de páginas inteiras implementada incrementalmente sobre o Semantic Analyzer V2. A interface está em PT-BR e oferece apenas artefatos verificados pelo backend. O resultado separa DOM, scroll, captura visual e movimento, com segmentos para páginas longas, controles temporais de canvas e observação mobile limitada. Visual DNA 2.0 e RAW permanecem separados e registros V1 continuam legíveis. Consulte `docs/VERIFICATION.md` para testes e a validação real do Hungry Tiger. Não trate esta entrega como certificada para produção.
 
 ## Requisitos
 
@@ -26,7 +26,7 @@ npm run browser:install
 npm run dev
 ```
 
-Abra **http://localhost:4173**. Cole uma URL pública completa (`https://...`), clique em **Analyze website** e aguarde as etapas reais recebidas do backend. Na conclusão, explore as abas e baixe o JSON em **Download Visual DNA**.
+Abra **http://localhost:4173**. Cole uma URL pública completa (`https://...`), clique em **Analisar site** e aguarde as etapas reais recebidas do backend. Na conclusão, explore as abas e baixe o JSON em **Baixar DNA Visual**.
 
 Linux: se faltarem bibliotecas nativas, execute `npx playwright install --with-deps chromium` durante a preparação do sistema. A aplicação em si deve continuar executando sem root.
 
@@ -96,10 +96,11 @@ tests/                     testes e página de referência controlada
 - Escalas de tipografia e espaçamentos; espaçamentos em px agrupados no múltiplo de 2 mais próximo.
 - Containers e regiões semânticas; grids/flex e candidatos técnicos completos permanecem no RAW.
 - Navbar, hero conservador, botão, input, form, FAQ, footer e famílias de cards com anatomia e referências a tokens.
-- Transições/animações declaradas e comparação de transform, opacity e filter em cinco posições de scroll.
-- Desktop 1440×900 e mobile 390×844; diferenças de propriedades entre as amostras.
-- Screenshot principal e mobile; full page quando até 12.000 px de altura e 2.400 px de largura.
-- Abas Overview, Colors, Typography, Spacing, Radius, Shadows, Components, Layout, Motion e Raw Visual DNA.
+- Transições/animações declaradas e mudanças de transform, opacity e filter em até 20 checkpoints adaptativos.
+- Desktop 1440×900 e mobile 390×844 com até 6 checkpoints próprios; coleta acumulada e IDs estáveis por objeto DOM.
+- Screenshot principal/mobile PNG; segmentos JPEG para páginas longas. Imagem integral opcional continua limitada a 12.000 × 2.400 px.
+- Canvas explícito no RAW; diferenças RGB em amostras de 16×16 pixels e observações sem scroll, sem IA ou extração de WebGL.
+- Abas Visão geral, Cores, Tipografia, Espaçamento, Bordas, Sombras, Componentes, Layout, Movimento e DNA Visual bruto.
 - Histórico compatível com V1, download Visual DNA V2 e RAW separado no Overview; retenção existente preservada.
 
 Não coleta textos, logos ou arquivos de imagem para reutilização. **Screenshots contêm a aparência e o conteúdo visível da página**, como solicitado; ficam no armazenamento local, não são incorporados ao JSON exportado.
@@ -146,7 +147,7 @@ npm run test:e2e
 
 Os testes unitários não dependem de um site externo. Os testes E2E usam `tests/fixture.html`, servida por um transporte **injetado somente no teste** sob `https://fixture.example/`. A API não possui modo para ignorar SSRF, nem aceita arquivos HTML ou URLs locais.
 
-O E2E verifica computed styles, cor, fontes desktop/mobile, cards, movimento, cinco posições de scroll e screenshots. Há teste de redirecionamento para loopback. O teste exige que o navegador tenha lançado antes de considerar a proteção verificada, evitando falsos positivos por falta de Chromium.
+O E2E verifica computed styles, cor, fontes desktop/mobile, cards, movimento, screenshots, página longa, conteúdo lazy, canvas estático/temporal/reativo e ausência de links para artefatos ausentes. Há teste de redirecionamento para loopback. O teste exige que o navegador tenha lançado antes de considerar a proteção verificada, evitando falsos positivos por falta de Chromium.
 
 O lint cobre o TypeScript do backend e testes. O JavaScript da interface também foi validado sintaticamente com `node --check web/app.js`. O build compila backend e testes; a UI é servida diretamente de `web/`.
 
@@ -175,10 +176,11 @@ Leia `docs/SECURITY.md` antes de ampliar o escopo. As proteções incluem:
 - Sem uso de cookies, alguns sites não se comportam como numa sessão normal; o coletor rejeita respostas comprimidas que ignorem `Accept-Encoding: identity`.
 - Recursos acima dos limites, fontes indisponíveis e scripts que exigem POST podem alterar a captura.
 - Fontes são identificadas pela declaração CSS. A interface usa fontes instaladas localmente; não redistribui fontes da referência.
-- Cores têm frequência e estimativa de cobertura de fundos numa grade de caixas, sem análise pixel-perfect ou composição de transparência. Raio e sombras são agrupados por recorrência exata; não há clustering perceptual de sombras.
+- Cores têm frequência e estimativa de cobertura de fundos numa grade de caixas, sem análise pixel-perfect ou composição de transparência. Raios extremos são normalizados para cápsula/círculo segundo a geometria; valores originais permanecem no RAW. Não há clustering perceptual de sombras.
 - Pricing e depoimentos não são inferidos sem evidência confiável; logo cloud e bento usam sinais estruturais conservadores. Rótulos ausentes não significam ausência do padrão na página.
-- Correspondência desktop/mobile usa índices DOM e tags; em páginas dinâmicas pode não corresponder ao mesmo componente. Não infere breakpoints exatos.
-- Scroll limitado a 12.000 px; mudanças temporais podem parecer mudanças causadas por scroll. Não infere com segurança parallax ou trajetórias completas.
+- Correspondência desktop/mobile usa identidade do objeto DOM, tag, pai e role; nós substituídos não são equiparados automaticamente. Reduções tipográficas improváveis ficam desconhecidas. Não infere breakpoints exatos.
+- Checkpoints são limitados por quantidade e tempo, sem teto fixo de altura. Páginas muito altas, infinitas ou que se reorganizam podem ter lacunas explícitas. Chegar ao fim não equivale a observar 100%.
+- O canvas é observado visualmente, não decomposto. Diferenças podem refletir recortes, oclusão ou passagem do tempo. Controles temporais sustentam associação com scroll, sem provar causalidade.
 - Sem cota de memória nativa rígida; limite de duração e árvore de processos são salvaguardas, não substitutos de cgroups/Job Objects de produção.
 
 ## Evolução planejada
@@ -194,7 +196,23 @@ Comparação e combinação de DNAs; tokens exportáveis; geração React/Tailwi
 - **Página bloqueada/inacessível:** escolha outra referência pública. Não há modo de burlar o bloqueio.
 - **SSL/recurso ausente:** verifique certificado, rede e avisos do DNA; o coletor mantém validação TLS.
 - **Análise incompleta/sem cores:** veja avisos, limites e formatos de cor suportados acima.
-- **Full screenshot 404:** a página excedeu o limite e o aviso correspondente foi registrado.
+- **Imagem integral ausente:** use **Página inteira** para examinar os segmentos disponíveis. A ação aparece somente quando há imagem integral ou segmentos verificados no disco.
 - **Falha DNS atrás de proxy corporativo:** o transporte requer DNS e conexão direta permitidos; não herda proxies autenticados.
 
 Documentação primária usada como referência: [Playwright BrowserType](https://playwright.dev/docs/api/class-browsertype), [network interception](https://playwright.dev/docs/network), [service workers](https://playwright.dev/docs/service-workers).
+
+## Percurso, artefatos e cobertura
+
+O motor coleta no topo e depois de cada avanço. Preserva o primeiro estado útil dos elementos conhecidos, substitui amostras inicialmente transparentes quando reveladas e incorpora novos IDs até o limite global de 1.800 por viewport. Mudanças de estado ficam nos frames; IDs são locais à captura, mantidos em WeakMap e independentes da ordem de inserção.
+
+Os passos usam distância real (normalmente 90% da altura da viewport, com sobreposição), reajustada à altura atual e ao orçamento restante. Páginas curtas continuam recebendo aproximadamente cinco estados; páginas longas chegam a 20. Após cada avanço, o motor aguarda dois frames de renderização (com escape de 160 ms) e 100 ms de estabilização. Desktop tem orçamento de 24 s, mobile de 7 s; os prazos absolutos do browser (60 s) e worker (75 s) permanecem.
+
+`captureCoverage` no registro/API mostra elementos iniciais/adicionais, truncamento, altura/largura, checkpoints, motivo de parada, cobertura de scroll/mobile e cobertura visual. A porcentagem é a união das faixas de viewport observadas dividida pela altura final, não a distância entre primeiro e último checkpoint. O DOM não recebe porcentagem inventada. A cobertura horizontal também é explicitada.
+
+`artifacts` informa desktop/mobile/fullPage/RAW e segmentos com nome, posição e dimensão. A API reconcilia o manifesto com arquivos reais, inclusive no histórico V1. Segmentos têm qualidade JPEG 75; a imagem do topo é reutilizada. Quando há `full.png`, segmentos redundantes são removidos. O orçamento agregado de imagens é 24 MiB. Capturas regionais PNG de canvas ficam apenas em memória: o RAW guarda assinaturas reduzidas, até 3 canvas por checkpoint e 120 estados. Todo arquivo persistido pertence ao registro UUID e à retenção existente de 30 análises/7 dias.
+
+Validação pública manual com o mesmo worker seguro (o registro entra no histórico e na retenção):
+
+```powershell
+node --import tsx tests/validate-public.ts https://www.eathungrytiger.com
+```

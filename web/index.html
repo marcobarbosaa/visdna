@@ -3,19 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>VisDNA — Visual intelligence</title>
+    <title>VisDNA — Inteligência visual</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <header>
       <a class="brand" href="/" aria-label="VisDNA início"
         ><span class="brand-icon">◈</span> VisDNA<span class="version">LAB / 01</span></a
-      ><span class="local"><i></i> Local workspace</span>
+      ><span class="local"><i></i> Espaço de trabalho local</span>
     </header>
     <main>
       <section class="intro">
-        <div class="eyebrow">THE LANGUAGE BEHIND THE PIXELS</div>
-        <h1>Analyze a website<span>Discover its visual DNA.</span></h1>
+        <div class="eyebrow">A LINGUAGEM POR TRÁS DOS PIXELS</div>
+        <h1>Analise um site<span>Descubra seu DNA visual.</span></h1>
         <p>
           Transforme uma referência em um sistema visual.<br />Cores, tipografia, composição e
           movimento — organizados.
@@ -27,13 +27,13 @@
             id="url"
             name="url"
             type="url"
-            placeholder="https://your-inspiration.com"
+            placeholder="https://sua-inspiracao.com"
             required
             maxlength="2048"
-          /><button id="submit">Analyze website <span>→</span></button>
+          /><button id="submit">Analisar site <span>→</span></button>
         </form>
         <div class="hint">
-          PUBLIC PAGES ONLY <b>·</b> COMPUTED STYLES <b>·</b> FRAMEWORK AGNOSTIC
+          APENAS PÁGINAS PÚBLICAS <b>·</b> ESTILOS COMPUTADOS <b>·</b> INDEPENDENTE DE FRAMEWORK
         </div>
         <div id="error" role="alert" hidden></div>
       </section>
@@ -46,25 +46,25 @@
       <section id="result" hidden>
         <div class="result-heading">
           <div>
-            <div class="eyebrow">VISUAL DNA / EXPLORER</div>
+            <div class="eyebrow">DNA VISUAL / EXPLORADOR</div>
             <h2 id="domain"></h2>
             <p id="meta"></p>
           </div>
-          <a id="download" class="button" download>Download Visual DNA ↓</a>
+          <a id="download" class="button" download>Baixar DNA Visual ↓</a>
         </div>
         <nav id="tabs" aria-label="Seções do resultado"></nav>
         <div id="panel"></div>
       </section>
       <section class="recent">
         <div class="section-top">
-          <h2>Recent explorations <span id="count"></span></h2>
-          <button id="refresh" class="text-button">Refresh ↻</button>
+          <h2>Explorações recentes <span id="count"></span></h2>
+          <button id="refresh" class="text-button">Atualizar ↻</button>
         </div>
         <div id="history" class="history"></div>
       </section>
       <footer>
-        <span>VisDNA</span><span>Observe. Understand. Create something new.</span
-        ><span>LOCAL-FIRST / V1.0</span>
+        <span>VisDNA</span><span>Observe. Entenda. Crie algo novo.</span
+        ><span>ARMAZENAMENTO LOCAL / V1.0</span>
       </footer>
     </main>
     <script type="module" src="/app.js"></script>

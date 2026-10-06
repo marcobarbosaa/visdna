@@ -1,4 +1,5 @@
 import { renderSemantic } from './semantic.js';
+import { pt } from './i18n.js';
 const $ = (s) => document.querySelector(s);
 const stages = {
   queued: 'Queued',
@@ -19,7 +20,7 @@ let current = null,
   generation = 0;
 function el(tag, text, className) {
   const n = document.createElement(tag);
-  if (text !== undefined) n.textContent = text;
+  if (text !== undefined) n.textContent = tag === 'pre' ? text : pt(text);
   if (className) n.className = className;
   return n;
 }
@@ -36,7 +37,7 @@ async function api(path, options) {
   return data;
 }
 function error(message) {
-  $('#error').textContent = message;
+  $('#error').textContent = pt(message);
   $('#error').hidden = !message;
 }
 async function history() {
@@ -57,7 +58,7 @@ async function history() {
       n.append(
         el('small', new Date(r.createdAt).toLocaleString('pt-BR')),
         el('strong', r.domain),
-        el('small', `${stages[r.stage] || r.stage} ↗`),
+        el('small', `${pt(stages[r.stage] || r.stage)} ↗`),
       );
       n.onclick = () => watch(r.id);
       $('#history').append(n);
@@ -67,7 +68,7 @@ async function history() {
   }
 }
 function progress(stage) {
-  $('#stage').textContent = stages[stage] || stage;
+  $('#stage').textContent = pt(stages[stage] || stage);
   const keys = Object.keys(stages).filter((k) => !['queued', 'complete', 'error'].includes(k));
   $('#steps').replaceChildren(
     ...keys.map((k) =>
@@ -146,7 +147,7 @@ function render() {
   $('#result').hidden = false;
   $('#domain').textContent = r.domain;
   $('#meta').textContent =
-    `${d.methodology.sampledElements} elements · ${d.source.viewports.join(' / ')} px · schema ${d.schemaVersion}`;
+    `${d.methodology.sampledElements} elementos · ${d.source.viewports.join(' / ')} px · versão ${d.schemaVersion}`;
   $('#download').href = `/api/analyses/${r.id}/dna`;
   $('#tabs').replaceChildren(
     ...sections.map((name) => {
@@ -166,27 +167,69 @@ function render() {
     const wrap = el('div', undefined, 'overview');
     const picture = el('div');
     const img = el('img', undefined, 'screenshot');
-    img.src = `/api/analyses/${r.id}/images/main.png`;
+    if (r.artifacts?.desktop) img.src = `/api/analyses/${r.id}/images/main.png`;
     img.alt = 'Captura desktop da página analisada';
-    picture.append(img);
+    if (r.artifacts?.desktop) picture.append(img);
+    else picture.append(el('p', 'Captura principal indisponível.', 'notice'));
     const links = el('p', undefined, 'chips');
     for (const [name, label] of [
       ['full', 'Full page'],
       ['mobile', 'Mobile'],
     ]) {
+      if (!(name === 'full' ? r.artifacts?.fullPage : r.artifacts?.mobile)) continue;
       const a = el('a', label, 'chip');
       a.href = `/api/analyses/${r.id}/images/${name}.png`;
       a.target = '_blank';
       a.rel = 'noopener';
       links.append(a);
     }
+    if (!r.artifacts?.fullPage && r.artifacts?.segments?.length) {
+      const open = el('button', 'Página inteira', 'chip');
+      const gallery = el('div', undefined, 'segments');
+      gallery.hidden = true;
+      open.setAttribute('aria-expanded', 'false');
+      open.onclick = () => {
+        gallery.hidden = !gallery.hidden;
+        open.setAttribute('aria-expanded', String(!gallery.hidden));
+        if (gallery.childElementCount) return;
+        for (const segment of r.artifacts.segments) {
+          const figure = el('figure');
+          const image = el('img', undefined, 'screenshot');
+          image.loading = 'lazy';
+          image.src = `/api/analyses/${r.id}/images/${segment.file}`;
+          image.alt = `Segmento ${segment.index + 1}: ${Math.round(segment.startY)} a ${Math.round(segment.endY)} pixels`;
+          image.onerror = () => {
+            image.remove();
+            figure.append(el('p', 'Este segmento não está mais disponível.'));
+          };
+          figure.append(el('figcaption', image.alt), image);
+          gallery.append(figure);
+        }
+      };
+      links.append(open);
+      picture.append(gallery);
+    }
+    img.onerror = () => {
+      img.remove();
+      picture.prepend(el('p', 'A captura não está mais disponível.'));
+    };
     picture.append(links);
     const aside = card('Measured, then interpreted.');
     if (d.schemaVersion === '2.0') {
-      for (const summary of Object.values(d.designSummary)) aside.append(el('p', summary));
+      if (d.identity.theme.value) aside.append(el('p', `Tema: ${pt(d.identity.theme.value)}.`));
+      if (d.layout.desktopContainer.value)
+        aside.append(el('p', `Container de conteúdo: ${d.layout.desktopContainer.value}px.`));
+      const body = d.typography.roles.body?.value;
+      if (body) aside.append(el('p', `Texto do corpo: ${body.family}, ${body.size}.`));
+      aside.append(
+        el(
+          'p',
+          `${d.componentFamilies.length} famílias de componentes e ${d.motion.patterns.length} padrões de movimento ou posicionamento.`,
+        ),
+      );
       const raw = el('a', 'Download RAW analysis', 'chip');
       raw.href = `/api/analyses/${r.id}/raw`;
-      aside.append(raw);
+      if (r.artifacts?.raw) aside.append(raw);
     }
     aside.append(
       el(
@@ -195,11 +238,61 @@ function render() {
         'muted',
       ),
     );
+    const details = el('details', undefined, 'warnings');
+    details.append(el('summary', `${d.methodology.warnings.length} avisos da análise`));
     const list = el('ul');
-    for (const warning of d.methodology.warnings) list.append(el('li', warning));
-    aside.append(list);
+    for (const warning of d.methodology.warnings) {
+      const category = /ERROR|erro/i.test(warning)
+        ? 'Erro'
+        : /WARNING|aviso/i.test(warning)
+          ? 'Aviso'
+          : /limit|parcial|unknown|heuristic|estimate|may|not /i.test(warning)
+            ? 'Limitação'
+            : 'Informação';
+      const translated = pt(warning);
+      list.append(
+        el('li', translated.startsWith(`${category}:`) ? translated : `${category}: ${translated}`),
+      );
+    }
+    details.append(list);
+    aside.append(details);
     wrap.append(picture, aside);
     panel.append(wrap);
+    const coverage = r.captureCoverage;
+    if (coverage) {
+      const percent = (n) => `${(n * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
+      const section = el('section', undefined, 'coverage');
+      section.append(el('h3', 'Cobertura da análise'));
+      const grid = el('div', undefined, 'grid');
+      const visual = coverage.screenshots.coverage * coverage.screenshots.horizontalCoverage;
+      for (const [label, value] of [
+        ['DOM', coverage.dom.truncated ? 'Amostra limitada' : 'Amostra sem truncamento'],
+        [
+          'Elementos analisados',
+          `${coverage.dom.sampledElements} (${coverage.dom.addedElements} adicionais durante a rolagem)`,
+        ],
+        [
+          'Scroll observado',
+          `${percent(coverage.scroll.coverage)} · ${coverage.scroll.reachedBottom ? 'fim alcançado' : 'fim não alcançado'}`,
+        ],
+        [visual >= 1 ? 'Captura visual' : 'Captura visual parcial', percent(visual)],
+        ['Computador', `1440 × 900 · página ${coverage.pageWidth} × ${coverage.pageHeight}px`],
+        ['Celular', `390 × 844 · rolagem observada ${percent(coverage.mobile.coverage)}`],
+        ['Canvas encontrados', coverage.motion.canvasRegions],
+        ['Checkpoints de movimento', coverage.motion.checkpoints],
+      ])
+        grid.append(card(label, value));
+      section.append(
+        grid,
+        el(
+          'p',
+          'DOM indica a amostragem dos elementos renderizados. As porcentagens de rolagem e captura visual medem as faixas realmente observadas; chegar ao fim não garante ausência de lacunas.',
+          'notice',
+        ),
+      );
+      panel.append(section);
+    } else
+      panel.append(el('p', 'Este registro antigo não possui métricas de cobertura.', 'notice'));
     return;
   }
   if (selected === 'Raw Visual DNA') {

@@ -3,8 +3,23 @@ import type { SemanticContext, ComponentFamily, VisualDNAV2, ColorFamily } from 
 import { finding, signal } from './confidence.js';
 import { title as isTitle, description, interactive, media, median, px } from './context.js';
 import { parseColor } from './color-space.js';
-import { reference } from './tokens.js';
+import { reference, semanticRadius } from './tokens.js';
 import { columns } from './layout.js';
+function foreground(element: ElementSample, descendants: ElementSample[]): string {
+  const weights = new Map<string, number>();
+  for (const child of descendants.filter(
+    (c) => c.children === 0 && c.textLength > 0 && !interactive(c),
+  )) {
+    const color = parseColor(child.styles.color || '')?.value;
+    if (color) weights.set(color, (weights.get(color) || 0) + child.textLength);
+  }
+  return (
+    [...weights].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ||
+    parseColor(element.styles.color || '')?.value ||
+    element.styles.color ||
+    ''
+  );
+}
 export function analyzeComponents(
   ctx: SemanticContext,
   tokens: VisualDNAV2['tokens'],
@@ -56,6 +71,8 @@ export function analyzeComponents(
     const key = [
       type,
       normalized(e.styles.backgroundColor || ''),
+      normalized(foreground(e, desc)),
+      normalized(e.styles.borderColor || ''),
       e.styles.borderRadius,
       e.styles.padding,
       e.styles.boxShadow,
@@ -130,13 +147,21 @@ export function analyzeComponents(
         hasAction: desc.some(interactive),
       },
       visualStyle: {
-        background: reference(background, tokens, 'colors'),
-        color: reference(
-          parseColor(e.styles.color || '')?.value || e.styles.color || '',
+        background: reference(background, tokens, 'colors', ['surface', 'background', 'primary']),
+        color: reference(foreground(e, desc), tokens, 'colors', [
+          'textPrimary',
+          'textSecondary',
+          'muted',
+        ]),
+        border: reference(
+          px(e.styles.borderWidth) > 0
+            ? parseColor(e.styles.borderColor || '')?.value || e.styles.borderColor || ''
+            : 'none',
           tokens,
           'colors',
+          ['border'],
         ),
-        radius: reference(e.styles.borderRadius || '0px', tokens, 'radius'),
+        radius: reference(semanticRadius(e), tokens, 'radius'),
         padding: reference(uniform ? parseFloat(padding) : padding, tokens, 'spacing'),
         shadow: reference(e.styles.boxShadow || 'none', tokens, 'shadows'),
       },

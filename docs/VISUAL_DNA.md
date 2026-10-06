@@ -2,6 +2,34 @@
 
 `src/types.ts` define `VisualDNA = VisualDNAV1 | VisualDNAV2`. O contrato V2 está em `src/analysis/semantic/types.ts`. O discriminador é `schemaVersion`; consumidores devem aceitar campos desconhecidos e valores `null`.
 
+## Evolução: captura progressiva e movimento visual
+
+Os novos campos são aditivos no contrato de captura/registro. As chaves e discriminadores existentes do DNA 2.0 não foram traduzidos nem substituídos. `web/i18n.js` apresenta rótulos e evidências em PT-BR; a aba JSON preserva o contrato original.
+
+- `Capture.screenshots` e `AnalysisRecord.artifacts`: flags desktop/mobile/fullPage (e RAW no registro), mais `segments[]` com `index`, `file`, `startY`, `endY`, `width`. Detalhe e listagem da API verificam cada arquivo antes de informar disponibilidade. A rota de imagens aceita somente nomes fixos e `segment-000.jpg` a `segment-019.jpg`.
+- `captureCoverage`: DOM (contagem inicial/adicional, amostra/truncamento), scroll (posições reais, união das faixas, fim alcançado, motivo de parada), mobile independente, screenshots (cobertura vertical/horizontal) e motion (checkpoints, canvas, estados observados e limitação). Ausência em registros antigos significa desconhecido.
+- `Capture.canvasRegions`: regiões canvas com geometria, position/zIndex/opacity/transform e `visualStateObserved`. `visualStates[]` contém amostras por checkpoint, chegada/estabilização, faixa de scroll, regiões estruturais e assinatura RGB 16×16. `mobileFrames` preserva a observação mobile.
+- Snapshot acumula elementos até 1.800 e inspeciona até 12.000 nós por coleta com TreeWalker limitado. WeakMap mantém identidade entre scroll e viewport, mesmo com inserção anterior no DOM; nós recriados ganham outro ID. O primeiro estado útil é canônico, estados transparentes podem ser atualizados e frames registram mudanças. Não multiplica elementos conhecidos a cada checkpoint.
+- `layout.viewportWidth`, `pageShellWidth`, `contentContainerWidth` separam viewport, estrutura externa e conteúdo. `desktopContainer` permanece como alias compatível da inferência de conteúdo. Elementos praticamente full-width não bastam como evidência.
+- Spacing adiciona `observed` e `sectionSpacing`; só gera tokens recorrentes de até 96 px quando uma escala tem suporte. Radius normaliza geometria plenamente arredondada para `pill`/`circle`, conservando CSS original no RAW. Foreground/background/border de famílias são agrupados e resolvidos independentemente. Papéis secondary/accent não compartilham somente evidência da mesma ação.
+- Typography responsiva mantém resultado desconhecido para reduções improváveis (tamanhos inferiores a 8 px ou razão mobile/desktop inferior a 0,55 no corpo e 0,3 nos títulos em mais de 25% dos pares). Estes limites são sanidade heurística, não regras universais de design.
+
+### Percurso e limites
+
+Desktop: até 20 checkpoints, 24 s de percurso e corte até 45 s após início. Mobile: até 6 checkpoints, 7 s e corte até 55 s. Frames reais duplos com escape de 160 ms, mais 100 ms de estabilização. Passos de aproximadamente 90% da viewport com sobreposição; se necessário, distância maior para alcançar o fim dentro do orçamento. A altura é consultada novamente para considerar lazy loading. Lacunas permanecem na métrica de cobertura: não se presume observar pixels atravessados por um salto. Páginas infinitas podem atingir limite e retornar parcial. Browser continua com 60 s e supervisor com 75 s.
+
+Até 24 MiB de imagens por captura. PNG desktop/mobile e integral opcional, JPEG 75 nos segmentos, sem imagem gigante obrigatória. Integral somente até 2.400×12.000 px, com dimensões novamente verificadas antes da captura. A imagem principal é reutilizada como primeiro segmento; segmentos redundantes são apagados se a integral foi produzida. RAW, imagens e registro compartilham retenção; não há arquivos PNG temporários de comparação no disco.
+
+### Evidência visual e causalidade
+
+Screenshots regionais visíveis são decodificados em uma página isolada, offline, sem scripts remotos. Comparam-se vetores RGB reduzidos por diferença absoluta média normalizada: ≥0,035 para mudança; <0,015 para estabilidade do controle sem scroll. Dimensões de recorte devem coincidir com tolerância de 2 px. Até 3 canvas por checkpoint e 120 estados, memória limitada a pequenos vetores persistidos no RAW. Falha de captura significa `visualStateObserved: false`, não canvas estático.
+
+`canvas-visual-change` indica diferença visual observada. `scroll-reactive-region` exige pelo menos dois controles temporais estáveis e ≥75% das mudanças sustentadas por eles; confiança limitada a 0,82 para essa associação. `persistent-scroll-visual` exige pelo menos três observações visíveis, duas regiões estruturais, faixa de pelo menos duas viewports e 40% da página, com conteúdo gráfico ou alteração observada. Fixed/sticky são descobertos também em estados posteriores. Não se identifica conteúdo 3D, não se lê código WebGL nem se copiam assets.
+
+Controles A/A2/B não provam causalidade absoluta: movimento lento, temporização coincidente, sobreposições, oclusões e recortes continuam alternativas. Um controle só conta como estável se scrollY e dimensões também permanecerem estáveis. Canvas fora das regiões amostradas, dentro de iframe/shadow DOM ou acima do limite pode não ser observado. Mobile observa estrutura, sem repetir comparação visual de canvas. Cobertura geométrica de 100% não garante carregamento de todos os assets, observação de cada instante nem descoberta de estados que exigem interação.
+
+`VisionAnalyzer` aceita adicionalmente segmentos, estados visuais e cobertura, além de desktop/mobile, RAW e DNA determinístico. Não há implementação ou chamada de IA externa.
+
 ## Pipeline e responsabilidades
 
 ```text
@@ -75,12 +103,12 @@ Essa cobertura **não mede pixels, texto ou imagens**. Não reproduz z-index, re
 ## Tokens, componentes e performance
 
 - Spacing preserva múltiplos de 2 px. Infere a maior unidade entre 8/4/2 com ≥85% de suporte ponderado e três valores recorrentes. Nomes observacionais `space16`, sem fabricar xs/sm/md ou passos ausentes.
-- Radius/shadow agrupam valores exatos repetidos (`radius1`, `shadow1`); numeração estável só no documento. Não há clustering perceptual de sombras.
+- Radius agrupa valores semanticamente normalizados (`radiusPill`, `radiusCircle` e valores locais recorrentes). Shadow mantém valores exatos (`shadow1`); numeração estável só no documento. Não há clustering perceptual de sombras.
 - Referências: `{ token: "spacing.space16", resolved: 16 }`. `token: null` preserva valores locais. Todos os caminhos referenciados existem no documento.
 - Famílias usam anatomia, cor perceptual, estilo e dimensões quantizadas em 32 px. Alturas muito diferentes podem separar componentes. IDs ficam no RAW.
 - Motion normaliza s/ms, agrupa propriedade/duração/easing e separa declarações de opacity/transform/filter observado. Tokens `duration200` não impõem velocidade subjetiva.
 - Índices evitam buscas desktop/mobile e frames quadráticas. Limites: 32 ancestrais, 240 descendentes/irmãos de contexto, 256 cores por frequência antes do clustering, 32 regiões, 40 famílias/padrões, 12 tokens de estilo. Captura mantém 1.800 elementos/12.000 nós.
-- Dois estados não revelam breakpoints. Correspondência exige ID/tag/pai/role; páginas dinâmicas ainda podem produzir correspondências falsas ou faltar na amostra.
+- Duas larguras não revelam breakpoints. Correspondência exige ID estável/tag/pai/role e aplica sanidade tipográfica; nós substituídos ou fora da amostra podem não corresponder.
 
 ## Compatibilidade, visão futura e warnings
 

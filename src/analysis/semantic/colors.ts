@@ -19,6 +19,7 @@ interface Usage {
   body: boolean;
   surfaces: number;
   actionIds: Set<string>;
+  independentEmphasis: number;
 }
 function usage(color: ParsedColor): Usage {
   return {
@@ -33,6 +34,7 @@ function usage(color: ParsedColor): Usage {
     badges: 0,
     surfaces: 0,
     actionIds: new Set(),
+    independentEmphasis: 0,
     regions: new Set(),
     cells: new Set(),
     body: false,
@@ -107,6 +109,7 @@ export function analyzeColors(
       }
       if (key === 'borderColor') u.border++;
       const action = actionContext(e, ctx);
+      if (!action && key === 'color' && Number(e.styles.fontWeight) >= 600) u.independentEmphasis++;
       if (action && key !== 'borderColor') {
         u.actionIds.add(action.id);
         u.actions = u.actionIds.size;
@@ -141,6 +144,7 @@ export function analyzeColors(
         'emphasis',
         'badges',
         'surfaces',
+        'independentEmphasis',
       ] as const)
         merged[key] += u[key];
       for (const r of u.regions) merged.regions.add(r);
@@ -305,5 +309,14 @@ export function analyzeColors(
       muted.text,
     );
   // Hue alone never implies success/warning/danger; no reliable state metadata is collected.
+  if (
+    roles.secondary?.value &&
+    roles.secondary.value === roles.accent?.value &&
+    (!accent || accent.independentEmphasis < 2)
+  )
+    roles.accent = {
+      ...unknown<string>(),
+      evidence: ['Accent shares secondary action evidence; no independent emphasis observed'],
+    };
   return { palette, roles };
 }
