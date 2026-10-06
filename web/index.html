@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>VisDNA — Visual intelligence</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/" aria-label="VisDNA início"
+        ><span class="brand-icon">◈</span> VisDNA<span class="version">LAB / 01</span></a
+      ><span class="local"><i></i> Local workspace</span>
+    </header>
+    <main>
+      <section class="intro">
+        <div class="eyebrow">THE LANGUAGE BEHIND THE PIXELS</div>
+        <h1>Analyze a website<span>Discover its visual DNA.</span></h1>
+        <p>
+          Transforme uma referência em um sistema visual.<br />Cores, tipografia, composição e
+          movimento — organizados.
+        </p>
+        <form id="analyze">
+          <label for="url" class="sr-only">URL pública do site</label
+          ><span class="link-icon">↗</span
+          ><input
+            id="url"
+            name="url"
+            type="url"
+            placeholder="https://your-inspiration.com"
+            required
+            maxlength="2048"
+          /><button id="submit">Analyze website <span>→</span></button>
+        </form>
+        <div class="hint">
+          PUBLIC PAGES ONLY <b>·</b> COMPUTED STYLES <b>·</b> FRAMEWORK AGNOSTIC
+        </div>
+        <div id="error" role="alert" hidden></div>
+      </section>
+      <section id="progress" hidden aria-live="polite">
+        <div class="progress-head">
+          <span class="pulse"></span><strong id="stage"></strong><span id="elapsed"></span>
+        </div>
+        <ol id="steps"></ol>
+      </section>
+      <section id="result" hidden>
+        <div class="result-heading">
+          <div>
+            <div class="eyebrow">VISUAL DNA / EXPLORER</div>
+            <h2 id="domain"></h2>
+            <p id="meta"></p>
+          </div>
+          <a id="download" class="button" download>Download Visual DNA ↓</a>
+        </div>
+        <nav id="tabs" aria-label="Seções do resultado"></nav>
+        <div id="panel"></div>
+      </section>
+      <section class="recent">
+        <div class="section-top">
+          <h2>Recent explorations <span id="count"></span></h2>
+          <button id="refresh" class="text-button">Refresh ↻</button>
+        </div>
+        <div id="history" class="history"></div>
+      </section>
+      <footer>
+        <span>VisDNA</span><span>Observe. Understand. Create something new.</span
+        ><span>LOCAL-FIRST / V1.0</span>
+      </footer>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

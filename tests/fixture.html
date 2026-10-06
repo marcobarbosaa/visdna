@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>VisDNA controlled fixture</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f5f6f2;
+        color: #1c2927;
+        font-family: Arial, sans-serif;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        padding: 24px;
+        background: #fff;
+        z-index: 2;
+      }
+      header {
+        padding: 96px 32px;
+        text-align: center;
+      }
+      h1 {
+        font-size: 64px;
+        letter-spacing: -2px;
+      }
+      p {
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      button {
+        background: #176c53;
+        color: white;
+        border: 0;
+        border-radius: 8px;
+        padding: 16px 24px;
+        transition: opacity 0.3s;
+      }
+      section {
+        max-width: 1200px;
+        margin: auto;
+        padding: 32px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+      .card {
+        padding: 32px;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 4px 16px #0001;
+        height: 280px;
+      }
+      .reveal {
+        opacity: 0.2;
+        transform: translateY(20px);
+        transition:
+          opacity 0.2s,
+          transform 0.2s;
+      }
+      .reveal.show {
+        opacity: 1;
+        transform: none;
+      }
+      footer {
+        margin-top: 500px;
+        padding: 48px;
+        background: #176c53;
+        color: white;
+      }
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 36px;
+        }
+        section {
+          grid-template-columns: 1fr;
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>Controlled design reference</nav>
+    <header>
+      <h1>Design worth understanding.</h1>
+      <p>An original page for deterministic integration testing.</p>
+      <button>Explore the system</button>
+    </header>
+    <section>
+      <article class="card">
+        <h2>Color</h2>
+        <p>Measured properties.</p>
+      </article>
+      <article class="card">
+        <h2>Structure</h2>
+        <p>Repeated patterns.</p>
+      </article>
+      <article class="card reveal">
+        <h2>Motion</h2>
+        <p>Observable transitions.</p>
+      </article>
+    </section>
+    <footer>VisDNA fixture</footer>
+    <script>
+      addEventListener('scroll', () =>
+        document.querySelector('.reveal').classList.toggle('show', scrollY > 100),
+      );
+    </script>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "name": "visdna",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Public-page visual DNA explorer",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node --import tsx src/server.ts",
+    "build": "tsc",
+    "start": "node dist/src/server.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "node --import tsx --test tests/browser.e2e.ts tests/ui.e2e.ts",
+    "browser:install": "playwright install chromium",
+    "test:api": "npm run build && node --import tsx --test tests/api.e2e.ts",
+    "format": "prettier --write src web tests docs README.md"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ipaddr.js": "^2.2.0",
+    "playwright": "1.63.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}
