@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Component foreground regression</title>
+    <style>
+      body {
+        margin: 20px;
+        font-family: sans-serif;
+        background: #fff;
+      }
+      main {
+        display: flex;
+        gap: 24px;
+      }
+      .card {
+        box-sizing: border-box;
+        width: 300px;
+        height: 240px;
+        padding: 24px;
+        border-radius: 6px;
+        background: #faae33;
+        color: #faae33;
+      }
+      .card h3,
+      .card p {
+        color: #402011;
+      }
+      .badge {
+        background: #402011;
+        color: #faae33;
+        border-radius: 1080px;
+        padding: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card">
+        <h3>First example</h3>
+        <p>Visible content uses its own foreground, independently of the wrapper.</p>
+        <span class="badge">Note</span>
+      </div>
+      <div class="card">
+        <h3>Second example</h3>
+        <p>Repeated content keeps the same foreground across the component family.</p>
+        <span class="badge">Note</span>
+      </div>
+    </main>
+  </body>
+</html>

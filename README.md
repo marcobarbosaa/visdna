@@ -2,7 +2,7 @@
 
 **Observe. Entenda. Crie algo novo.**
 
-Aplicação local que interpreta a linguagem visual de uma página pública a partir de seu DOM renderizado e de **computed styles**. O resultado é um Visual DNA JSON versionado, independente do framework de origem. Não recupera o código-fonte de React, não copia stylesheets inteiras e não gera clones.
+Aplicação local que observa e interpreta a linguagem visual de páginas públicas ao longo do scroll, combinando DOM renderizado, **computed styles**, geometria, estados responsivos e mudanças visuais. O percurso progressivo inclui screenshots segmentadas e observação de estados visuais de canvas, dentro dos limites de captura. O resultado é um Visual DNA JSON versionado, independente do framework de origem. Não recupera o código-fonte de React, não copia stylesheets inteiras e não gera clones.
 
 ## Status desta entrega
 
@@ -45,7 +45,7 @@ Execute os comandos na raiz do projeto: os caminhos de `web/` e `data/` são rel
 - Navegador: Playwright + Chromium com sandbox, contextos descartáveis.
 - Análise: funções TypeScript puras, separadas da coleta.
 - Interface: HTML, CSS e JavaScript ES modules, sem framework ou etapa extra de bundling.
-- Persistência: arquivos JSON locais com escrita temporária + rename, screenshots PNG por análise.
+- Persistência: arquivos JSON locais com escrita temporária + rename, screenshots PNG e segmentos JPEG por análise.
 - Testes: runner nativo `node:test`; ESLint, TypeScript e Prettier.
 
 ```mermaid
@@ -101,7 +101,7 @@ tests/                     testes e página de referência controlada
 - Screenshot principal/mobile PNG; segmentos JPEG para páginas longas. Imagem integral opcional continua limitada a 12.000 × 2.400 px.
 - Canvas explícito no RAW; diferenças RGB em amostras de 16×16 pixels e observações sem scroll, sem IA ou extração de WebGL.
 - Abas Visão geral, Cores, Tipografia, Espaçamento, Bordas, Sombras, Componentes, Layout, Movimento e DNA Visual bruto.
-- Histórico compatível com V1, download Visual DNA V2 e RAW separado no Overview; retenção existente preservada.
+- Histórico compatível com V1, download Visual DNA V2 e RAW separado na Visão geral; retenção existente preservada.
 
 Não coleta textos, logos ou arquivos de imagem para reutilização. **Screenshots contêm a aparência e o conteúdo visível da página**, como solicitado; ficam no armazenamento local, não são incorporados ao JSON exportado.
 

@@ -1,24 +1,75 @@
 import type { ElementSample } from '../../types.js';
 import type { SemanticContext, ComponentFamily, VisualDNAV2, ColorFamily } from './types.js';
-import { finding, signal } from './confidence.js';
+import { finding, signal, POLICY } from './confidence.js';
 import { title as isTitle, description, interactive, media, median, px } from './context.js';
-import { parseColor } from './color-space.js';
+import { parseColor, contrast } from './color-space.js';
 import { reference, semanticRadius } from './tokens.js';
 import { columns } from './layout.js';
-function foreground(element: ElementSample, descendants: ElementSample[]): string {
-  const weights = new Map<string, number>();
-  for (const child of descendants.filter(
-    (c) => c.children === 0 && c.textLength > 0 && !interactive(c),
-  )) {
-    const color = parseColor(child.styles.color || '')?.value;
-    if (color) weights.set(color, (weights.get(color) || 0) + child.textLength);
+export function componentForeground(
+  element: ElementSample,
+  descendants: ElementSample[],
+  ctx: SemanticContext,
+): string {
+  const surface = parseColor(element.styles.backgroundColor || '');
+  const candidates: { color: string; weight: number; nestedSurface: boolean; legible: boolean }[] =
+    [];
+  for (const child of [element, ...descendants]) {
+    // textLength includes descendants: use leaves to avoid counting wrapper text twice.
+    if (
+      child.children > 0 ||
+      (child.textLength <= 0 && !['input', 'textarea', 'select'].includes(child.tag)) ||
+      child.rect.width <= 0 ||
+      child.rect.height <= 0
+    )
+      continue;
+    const color = parseColor(child.styles.color || '');
+    if (!color || color.alpha < 0.1) continue;
+    let current: ElementSample | undefined = child;
+    let background = surface;
+    let foundBackground = false;
+    let visible = true;
+    let action = false;
+    for (let depth = 0; current && depth < POLICY.maxAncestors; depth++) {
+      if (
+        current.styles.display === 'none' ||
+        ['hidden', 'collapse'].includes(current.styles.visibility || '') ||
+        Number(current.styles.opacity ?? 1) <= 0
+      )
+        visible = false;
+      action ||= interactive(current);
+      const local = parseColor(current.styles.backgroundColor || '');
+      if (!foundBackground && local) {
+        background = local;
+        foundBackground = true;
+      }
+      if (current.id === element.id) break;
+      current = current.parent ? ctx.byId.get(current.parent) : undefined;
+    }
+    if (!visible || current?.id !== element.id) continue;
+    candidates.push({
+      color: color.value,
+      weight:
+        Math.min(160, Math.max(1, child.textLength)) *
+        (isTitle(child, ctx) ? 1.5 : 1) *
+        (action && !interactive(element) ? 0.5 : 1),
+      nestedSurface: !!background && background.value !== surface?.value,
+      // Contrast is only a tie-breaking safeguard on known opaque local surfaces.
+      legible:
+        !background ||
+        background.alpha < 1 ||
+        color.alpha < 1 ||
+        contrast(color, background) >= 1.5,
+    });
   }
-  return (
-    [...weights].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ||
-    parseColor(element.styles.color || '')?.value ||
-    element.styles.color ||
-    ''
-  );
+  const mainText = candidates.filter((c) => !c.nestedSurface && c.legible);
+  const pool = mainText.length
+    ? mainText
+    : candidates.some((c) => c.legible)
+      ? candidates.filter((c) => c.legible)
+      : candidates;
+  const weights = new Map<string, number>();
+  for (const c of pool) weights.set(c.color, (weights.get(c.color) || 0) + c.weight);
+  return [...weights].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || '';
 }
 export function analyzeComponents(
   ctx: SemanticContext,
@@ -30,7 +81,12 @@ export function analyzeComponents(
   );
   const groups = new Map<
     string,
-    { type: string; elements: ElementSample[]; desc: ElementSample[] }
+    {
+      type: string;
+      elements: ElementSample[];
+      desc: ElementSample[];
+      foregrounds: Map<string, number>;
+    }
   >();
   for (const e of ctx.elements) {
     let type = '';
@@ -68,10 +124,11 @@ export function analyzeComponents(
       const value = parseColor(v)?.value || v;
       return colorFamilies.get(value) || value;
     };
+    const foreground = componentForeground(e, desc, ctx);
     const key = [
       type,
       normalized(e.styles.backgroundColor || ''),
-      normalized(foreground(e, desc)),
+      normalized(foreground),
       normalized(e.styles.borderColor || ''),
       e.styles.borderRadius,
       e.styles.padding,
@@ -83,8 +140,14 @@ export function analyzeComponents(
       Math.round(e.rect.width / 32),
       Math.round(e.rect.height / 32),
     ].join('|');
-    const group = groups.get(key) || { type, elements: [], desc };
+    const group = groups.get(key) || {
+      type,
+      elements: [],
+      desc,
+      foregrounds: new Map<string, number>(),
+    };
     group.elements.push(e);
+    if (foreground) group.foregrounds.set(foreground, (group.foregrounds.get(foreground) || 0) + 1);
     groups.set(key, group);
   }
   const result: ComponentFamily[] = [];
@@ -121,6 +184,9 @@ export function analyzeComponents(
     const background =
       parseColor(e.styles.backgroundColor || '')?.value || e.styles.backgroundColor || '';
     const padding = e.styles.padding || '';
+    const foreground = [...group.foregrounds].sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    )[0]?.[0];
     const uniform = /^\d+(\.\d+)?px$/.test(padding);
     result.push({
       componentFamily: `${type}-${result.filter((r) => r.type === type).length + 1}`,
@@ -148,11 +214,15 @@ export function analyzeComponents(
       },
       visualStyle: {
         background: reference(background, tokens, 'colors', ['surface', 'background', 'primary']),
-        color: reference(foreground(e, desc), tokens, 'colors', [
-          'textPrimary',
-          'textSecondary',
-          'muted',
-        ]),
+        ...(foreground
+          ? {
+              color: reference(foreground, tokens, 'colors', [
+                'textPrimary',
+                'textSecondary',
+                'muted',
+              ]),
+            }
+          : {}),
         border: reference(
           px(e.styles.borderWidth) > 0
             ? parseColor(e.styles.borderColor || '')?.value || e.styles.borderColor || ''

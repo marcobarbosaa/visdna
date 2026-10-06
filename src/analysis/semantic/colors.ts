@@ -2,7 +2,7 @@ import type { Snapshot } from '../../types.js';
 import type { ColorFamily, Finding, SemanticContext } from './types.js';
 import { parseColor, colorDistance, contrast, type ParsedColor } from './color-space.js';
 import { finding, signal, unknown, POLICY } from './confidence.js';
-import { interactive, actionContext, px } from './context.js';
+import { interactive, heading, px } from './context.js';
 
 interface Usage {
   color: ParsedColor;
@@ -19,7 +19,8 @@ interface Usage {
   body: boolean;
   surfaces: number;
   actionIds: Set<string>;
-  independentEmphasis: number;
+  highlightIds: Set<string>;
+  highlightRegions: Set<string>;
 }
 function usage(color: ParsedColor): Usage {
   return {
@@ -34,7 +35,8 @@ function usage(color: ParsedColor): Usage {
     badges: 0,
     surfaces: 0,
     actionIds: new Set(),
-    independentEmphasis: 0,
+    highlightIds: new Set(),
+    highlightRegions: new Set(),
     regions: new Set(),
     cells: new Set(),
     body: false,
@@ -75,6 +77,15 @@ export function analyzeColors(
   // It avoids adding overlapping ancestor/child areas, but cannot model z-index or images.
   const paint: (string | undefined)[] = new Array(rows * cols);
   for (const e of ctx.elements) {
+    let ancestor: typeof e | undefined = e;
+    let action: typeof e | undefined;
+    for (let depth = 0; ancestor && depth < POLICY.maxAncestors; depth++) {
+      if (interactive(ancestor)) {
+        action = ancestor;
+        break;
+      }
+      ancestor = ancestor.parent ? ctx.byId.get(ancestor.parent) : undefined;
+    }
     for (const key of ['backgroundColor', 'color', 'borderColor'] as const) {
       if (key === 'color' && (e.textLength === 0 || e.children > 0)) continue;
       if (key === 'borderColor' && px(e.styles.borderWidth) <= 0) continue;
@@ -108,8 +119,21 @@ export function analyzeColors(
         if (Number(e.styles.fontWeight) >= 600) u.emphasis++;
       }
       if (key === 'borderColor') u.border++;
-      const action = actionContext(e, ctx);
-      if (!action && key === 'color' && Number(e.styles.fontWeight) >= 600) u.independentEmphasis++;
+      if (
+        !action &&
+        !ancestor &&
+        ((key === 'color' &&
+          (heading(e) || e.tag === 'mark' || Number(e.styles.fontWeight) >= 600)) ||
+          (key === 'backgroundColor' &&
+            e.children === 0 &&
+            e.textLength > 0 &&
+            e.rect.height <= 40 &&
+            e.rect.width <= 160 &&
+            px(e.styles.borderRadius) > 0))
+      ) {
+        u.highlightIds.add(e.id);
+        u.highlightRegions.add(ctx.region.get(e.id) || e.id);
+      }
       if (action && key !== 'borderColor') {
         u.actionIds.add(action.id);
         u.actions = u.actionIds.size;
@@ -144,11 +168,12 @@ export function analyzeColors(
         'emphasis',
         'badges',
         'surfaces',
-        'independentEmphasis',
       ] as const)
         merged[key] += u[key];
       for (const r of u.regions) merged.regions.add(r);
       for (const c of u.cells) merged.cells.add(c);
+      for (const id of u.highlightIds) merged.highlightIds.add(id);
+      for (const region of u.highlightRegions) merged.highlightRegions.add(region);
       merged.body ||= u.body;
     }
     const coverageRepresentative = g.members
@@ -264,25 +289,28 @@ export function analyzeColors(
         g.actions,
       );
   }
-  const accents = chromatic.filter(
-    (g) => g.count >= 3 && g.regions.size >= 2 && g.actions + g.emphasis + g.badges >= 2,
-  );
+  const accents = chromatic
+    .filter((g) => g.highlightIds.size >= 2 && g.highlightRegions.size >= 2)
+    .sort(
+      (a, b) =>
+        b.highlightIds.size - a.highlightIds.size || a.color.value.localeCompare(b.color.value),
+    );
   const accent = accents.find((g) => g.color.value !== roles.primary?.value) || accents[0];
   if (accent)
     roles.accent = finding(
       accent.color.value,
       [
-        signal(1, `Chromatic emphasis repeated in ${accent.regions.size} regions`),
+        signal(1, `Independent highlights in ${accent.highlightRegions.size} structural regions`),
         signal(
-          Math.min(1, (accent.actions + accent.emphasis + accent.badges) / 4),
-          'Interactive, emphasized text or badge use',
+          Math.min(1, accent.highlightIds.size / 4),
+          `${accent.highlightIds.size} distinct non-interactive heading, emphasis or badge elements`,
         ),
         signal(
           bg ? Math.min(1, contrast(accent.color, bg.color) / 3) : 0,
           'Contrast against dominant background',
         ),
       ],
-      accent.count,
+      accent.highlightIds.size,
     );
   const border = groups.filter((g) => g.border >= 2).sort((a, b) => b.border - a.border)[0];
   if (border)
@@ -309,14 +337,26 @@ export function analyzeColors(
       muted.text,
     );
   // Hue alone never implies success/warning/danger; no reliable state metadata is collected.
+  // Resolve provenance conflicts after per-role scoring, not by token names or hue alone.
+  const primary = action.find((g) => g.color.value === roles.primary?.value);
+  const secondary = action.find((g) => g.color.value === roles.secondary?.value);
   if (
-    roles.secondary?.value &&
-    roles.secondary.value === roles.accent?.value &&
-    (!accent || accent.independentEmphasis < 2)
+    primary &&
+    secondary &&
+    [...secondary.actionIds].filter((id) => !primary.actionIds.has(id)).length < 2
   )
-    roles.accent = {
+    roles.secondary = {
       ...unknown<string>(),
-      evidence: ['Accent shares secondary action evidence; no independent emphasis observed'],
+      evidence: [
+        'Secondary color shares dominant action elements; fewer than two independent secondary actions',
+      ],
     };
+  if (accent && roles.accent?.value)
+    for (const role of ['primary', 'secondary']) {
+      if (roles[role]?.value !== roles.accent.value) continue;
+      const overlap = `Shared color with ${role}/accent: ${accent.actionIds.size} action elements and ${accent.highlightIds.size} independent highlight elements in ${accent.highlightRegions.size} regions; disjoint element contexts`;
+      roles[role]!.evidence.push(overlap);
+      roles.accent.evidence.push(overlap);
+    }
   return { palette, roles };
 }

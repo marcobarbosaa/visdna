@@ -1,5 +1,28 @@
 # Verificação — percurso completo, movimento visual e PT-BR
 
+## V2.1.1 Semantic Reliability
+
+Correção incremental validada em 6 de outubro de 2026. RAW, coleta, budgets e proteções de segurança preservados. A identidade reutiliza radius geométrico; o foreground considera texto interno visível e fundo local; as roles de cor passam por resolução de conflitos de proveniência. O resumo menciona persistência somente com confidence ≥ 0,7, três checkpoints e duas regiões, sem afirmar causalidade.
+
+Comparação determinística sobre o RAW anterior `f5673975-ed8d-4d65-93f0-d56cfa8ad1cb`, sem sobrescrevê-lo, e nova captura pública concluída pelo worker seguro em `c9407485-cbcd-4d9a-b2b0-4dfc7e7d50e1` (`data/`, artefatos locais sujeitos à retenção):
+
+| Ponto | Antes | Depois, confirmado na nova captura |
+| --- | --- | --- |
+| Radius global | `high radius`, mediana crua 1080px, confidence 1 | `pill-heavy`, confidence 0,85; 22 pills, 17 círculos, 51/104 caixas arredondadas; raios convencionais 5–6px, razão mediana 0,017, 26 contextos |
+| Família de 3 cards | Fundo e foreground `#faae33` | Fundo `#faae33`, texto `#402011`, resolvido como `colors.textSecondary`, sustentado por títulos e descrições internos |
+| Secondary/accent | Ambos `#402011`, evidências genéricas semelhantes | Ambos permanecem `#402011`, mas a evidência explicita 12 ações e 4 highlights independentes em 2 regiões. Primary permanece `#faae33`. Mesmas ações sem suporte independente deixam a role desconhecida nos testes |
+| Resumo de movimento | Apenas contagem de padrões | `persistentScroll`: persistência observada em várias regiões, sem causalidade estabelecida; padrão com confidence 0,7, 20 checkpoints e 8 regiões |
+
+Hungry Tiger: página de 16.866 px, scroll e screenshots desktop com cobertura de 100%, 332 elementos, 20 checkpoints e captura segmentada. Mobile alcançou o fim, com cobertura observada de 30,7%; nenhum canvas observado. A comparação do mesmo RAW isola a alteração semântica das variações do site.
+
+Novos testes: nove regressões unitárias para radius/RAW, foreground diferente do wrapper, contraste contextual, transparência/visibilidade, labels interativos, ausência de texto, conflitos e evidências independentes, unknowns e resumo conservador. Uma fixture HTML com `.card`, `h3` e `p` verifica os valores computados no Chromium e a preservação do RAW.
+
+Validação executada: `npm run lint`, `npm run typecheck`, `npm test` (**70 aprovados**), `npm run build`, `npm run test:api` (**1 aprovado**), `npm run test:e2e` (**7 aprovados**) e `node --check` em `web/app.js`, `web/semantic.js` e `web/i18n.js`. As evidências novas também têm apresentação PT-BR, sem alteração de layout.
+
+Limites: folhas textuais e fundos locais são amostras DOM, não uma auditoria de pixels; transparência parcial, gradientes, imagens e oclusão limitam o contraste. Sem texto observável, `visualStyle.color` é omitido. Confidence continua heurística. O resumo reconhece as contagens da evidência produzida pelo detector atual; evidência ausente ou incompatível não gera a frase. Registros históricos não são migrados automaticamente.
+
+## Histórico da entrega anterior
+
 Data: 6 de outubro de 2026. Windows, Node.js 24.21.0, Playwright 1.63.0; Chromium com `chromiumSandbox: true`. O terminal da ferramenta exigiu execução fora do sandbox por falha de inicialização (`helper_unknown_error: setup refresh had errors`); o sandbox da aplicação permaneceu ativo.
 
 ## Mudanças arquiteturais e bugs corrigidos

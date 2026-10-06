@@ -10,6 +10,40 @@ import { safeFetch } from '../src/security/fetch.js';
 import { intervalCoverage } from '../src/browser/traversal.js';
 
 test(
+  'computed card foreground follows h3/p instead of same-color wrapper',
+  { timeout: 70000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'visdna-foreground-'));
+    try {
+      const html = await readFile(new URL('./semantic-reliability.html', import.meta.url));
+      const result = await capture(
+        'https://fixture.example/',
+        dir,
+        () => {},
+        async () => ({
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+          body: html,
+        }),
+      );
+      const { dna, raw } = buildAnalysis(result, result.finalUrl);
+      const family = dna.componentFamilies.find((f) => f.type === 'card');
+      assert.equal(family?.instances, 2);
+      assert.equal(family?.visualStyle.background?.resolved, '#faae33');
+      assert.equal(family?.visualStyle.color?.resolved, '#402011');
+      assert(
+        raw.capture.desktop.elements.some(
+          (e) => e.tag === 'div' && e.styles.color === 'rgb(250, 174, 51)',
+        ),
+      );
+      assert(raw.capture.desktop.elements.some((e) => e.styles.borderRadius === '1080px'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   'long landing: segments, full traversal, lazy identity, mobile and canvas evidence',
   { timeout: 70000 },
   async () => {

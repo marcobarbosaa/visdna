@@ -1,5 +1,17 @@
 // Presentation only: exported JSON and internal discriminators stay unchanged.
 const labels = {
+  sharp: 'Cantos retos',
+  'low-radius': 'Arredondamento discreto',
+  'moderately-rounded': 'Arredondamento moderado',
+  rounded: 'Arredondado',
+  'pill-heavy': 'Predomínio de cápsulas',
+  'circle-heavy': 'Predomínio de círculos',
+  'Geometry normalized against each box; pills and circles excluded from conventional radius statistics':
+    'Geometria normalizada por caixa; cápsulas e círculos excluídos das estatísticas de raios convencionais',
+  'Secondary color shares dominant action elements; fewer than two independent secondary actions':
+    'A cor secundária compartilha os elementos das ações dominantes; menos de duas ações secundárias independentes',
+  'A persistent visual was observed across multiple scroll regions; scroll causality is not established.':
+    'Um elemento visual persistente foi observado em várias regiões de rolagem; a causalidade da rolagem não foi estabelecida.',
   Overview: 'Visão geral',
   Colors: 'Cores',
   Typography: 'Tipografia',
@@ -257,6 +269,31 @@ const phrases = [
   ],
 ];
 const patterns = [
+  [
+    /(\d+) pill-like elements; (\d+) circular elements; (\d+)\/(\d+) sampled boxes rounded/,
+    '$1 elementos em cápsula; $2 circulares; $3/$4 caixas amostradas arredondadas',
+  ],
+  [
+    /Conventional radii (.+)px; median radius\/minimum-dimension ratio (.+)/,
+    'Raios convencionais de $1px; razão mediana entre raio e menor dimensão de $2',
+  ],
+  [/(\d+) structural contexts represented/, '$1 contextos estruturais representados'],
+  [
+    /Independent highlights in (\d+) structural regions/,
+    'Destaques independentes em $1 regiões estruturais',
+  ],
+  [
+    /(\d+) distinct non-interactive heading, emphasis or badge elements/,
+    '$1 elementos distintos de título, ênfase ou etiqueta fora de interações',
+  ],
+  [
+    /Shared color with primary\/accent: (\d+) action elements and (\d+) independent highlight elements in (\d+) regions; disjoint element contexts/,
+    'Cor compartilhada entre primária e destaque: $1 ações e $2 destaques independentes em $3 regiões; contextos de elementos separados',
+  ],
+  [
+    /Shared color with secondary\/accent: (\d+) action elements and (\d+) independent highlight elements in (\d+) regions; disjoint element contexts/,
+    'Cor compartilhada entre secundária e destaque: $1 ações e $2 destaques independentes em $3 regiões; contextos de elementos separados',
+  ],
   [/^(\d+)-column groups become (\d+)-column$/, '$1 colunas passam a $2 colunas'],
   [/(\d+)-column/g, '$1 colunas'],
   [/tag=(\w+)/g, 'tag=$1'],

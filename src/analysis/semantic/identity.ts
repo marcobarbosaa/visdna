@@ -1,7 +1,77 @@
 import type { SemanticContext, VisualDNAV2 } from './types.js';
 import { finding, signal, unknown } from './confidence.js';
 import { parseColor, contrast } from './color-space.js';
-import { media, median, px } from './context.js';
+import { media, median, px, interactive } from './context.js';
+import { semanticRadius } from './tokens.js';
+export function radiusIdentity(ctx: SemanticContext) {
+  const boxes = ctx.elements.filter(
+    (e) =>
+      e.rect.width > 0 &&
+      e.rect.height > 0 &&
+      (px(e.styles.borderRadius) > 0 ||
+        ['pill', 'circle'].includes(semanticRadius(e)) ||
+        interactive(e) ||
+        media(e) ||
+        px(e.styles.borderWidth) > 0 ||
+        parseColor(e.styles.backgroundColor || '')),
+  );
+  const measured = boxes.filter(
+    (e) =>
+      ['pill', 'circle'].includes(semanticRadius(e)) ||
+      /^\d+(\.\d+)?px$/.test(e.styles.borderRadius || ''),
+  );
+  if (measured.length < 4) return unknown<string>();
+  const pills = measured.filter((e) => semanticRadius(e) === 'pill').length;
+  const circles = measured.filter((e) => semanticRadius(e) === 'circle').length;
+  const conventional = measured.filter(
+    (e) => !['pill', 'circle'].includes(semanticRadius(e)) && px(e.styles.borderRadius) > 0,
+  );
+  const rounded = pills + circles + conventional.length;
+  const ratios = conventional.map(
+    (e) => px(e.styles.borderRadius) / Math.min(e.rect.width, e.rect.height),
+  );
+  const sizes = conventional.map((e) => px(e.styles.borderRadius));
+  const value =
+    rounded / measured.length <= 0.2
+      ? 'sharp'
+      : Math.max(pills, circles) >= Math.max(3, rounded * 0.35)
+        ? pills >= circles
+          ? 'pill-heavy'
+          : 'circle-heavy'
+        : !sizes.length
+          ? null
+          : median(sizes) <= 8 && median(ratios) < 0.15
+            ? 'low-radius'
+            : median(ratios) >= 0.2
+              ? 'rounded'
+              : 'moderately-rounded';
+  return finding(
+    value,
+    [
+      signal(
+        1,
+        `${pills} pill-like elements; ${circles} circular elements; ${rounded}/${measured.length} sampled boxes rounded`,
+      ),
+      signal(
+        0.8,
+        'Geometry normalized against each box; pills and circles excluded from conventional radius statistics',
+      ),
+      ...(sizes.length
+        ? [
+            signal(
+              0.8,
+              `Conventional radii ${Math.min(...sizes)}-${Math.max(...sizes)}px; median radius/minimum-dimension ratio ${median(ratios).toFixed(3)}`,
+            ),
+          ]
+        : []),
+      signal(
+        0.8,
+        `${new Set(measured.map((e) => ctx.region.get(e.id))).size} structural contexts represented`,
+      ),
+    ],
+    measured.length,
+  );
+}
 export function analyzeIdentity(
   ctx: SemanticContext,
   dna: Pick<VisualDNAV2, 'colors' | 'spacing' | 'layout' | 'componentFamilies'>,
@@ -87,20 +157,8 @@ export function analyzeIdentity(
         data.length,
       ),
     );
-  const radius = ctx.elements
-    .filter((e) => px(e.styles.borderRadius) > 0)
-    .map((e) => px(e.styles.borderRadius));
-  if (radius.length >= 4)
-    characteristics.push(
-      finding(
-        median(radius) >= 16 ? 'high radius' : 'low radius',
-        [
-          signal(1, `Median nonzero radius ${median(radius)}px`),
-          signal(1, `${radius.length} rounded boxes`),
-        ],
-        radius.length,
-      ),
-    );
+  const radius = radiusIdentity(ctx);
+  if (radius.value) characteristics.push(radius);
   if (dna.layout.desktopContainer.value)
     characteristics.push(
       finding(
@@ -171,5 +229,18 @@ export function summarize(dna: Omit<VisualDNAV2, 'designSummary'>): Record<strin
         .join('; ') + '.';
   if (dna.motion.patterns.length)
     result.motion = `${dna.motion.patterns.length} grouped motion or positioning patterns; declarations and observed changes are distinguished.`;
+  if (
+    dna.motion.patterns.some(
+      (p) =>
+        p.type === 'persistent-scroll-visual' &&
+        p.confidence >= 0.7 &&
+        p.evidence.some((e) => {
+          const m = e.match(/across (\d+) checkpoints and (\d+) regions/);
+          return m && Number(m[1]) >= 3 && Number(m[2]) >= 2;
+        }),
+    )
+  )
+    result.persistentScroll =
+      'A persistent visual was observed across multiple scroll regions; scroll causality is not established.';
   return result;
 }
